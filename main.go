@@ -6,9 +6,13 @@ import (
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
-	"fmt"
 	"os"
+	"github.com/fsnotify/fsnotify"
 )
+
+
+const url string = "http://127.0.0.1:5000/"
+
 	
 type File struct {
 	Name string `json:"Name"`
@@ -25,9 +29,37 @@ func check(e error){
 	}
 }
 
+
+func getFile(file File) error {
+
+	_file := url + file.Path + file.Name
+
+
+	resp,err := http.Get(_file)
+	defer resp.Body.Close()
+
+	check(err)
+
+	//Creando un nuevo archivo en la ruta indicada
+	f,err  := os.Create(string(file.Name))
+	check(err)
+	defer f.Close()
+
+
+	body, err := ioutil.ReadAll(resp.Body)
+	check(err)
+
+
+	f.Write(body)
+	f.Sync()
+	
+	return err
+
+}
+
 func getData(){
 
-	resp, err := http.Get("http://127.0.0.1:5000/") 
+	resp, err := http.Get(url) 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 
@@ -39,25 +71,38 @@ func getData(){
 	f.Write(body)
 	f.Sync()
 
-
-	fmt.Printf(string(body))
-	//ioutil.WriteFile("data.json",body,0777)
-	//log.Println(string(body))
-
 }
 
 
 func main(){
 
-	getData()
+
+	//Si archivo ya existe and no hay actualizaciones del server, 
+	//no llamar a la función
+	//getData()
+
+
 	data,err := ioutil.ReadFile("data.json")
 
+	if err != nil{
+		
+		//obteniendo la lista json del servidor
+		getData()
 
+		data,err := ioutil.ReadFile("data.json")
+		check(err)
+	}
 
-	check(err)
+	//check(err)
 
 	var files []File
 
 	err = json.Unmarshal(data, &files)
-	fmt.Printf("files: %+v",files)
+
+
+	for i:= 0; i < len(files); i++{
+		getFile(files[i])
+	} 
+
+
 }
