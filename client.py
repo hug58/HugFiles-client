@@ -4,6 +4,7 @@ import websockets
 
 
 import json
+import os
 import os.path
 import requests
 
@@ -14,9 +15,13 @@ from pathlib import Path
 from event_handler import EventHandler,URL_API
 
 
-def get_file(file):
+def get_file(filename):
 
-	filename = os.path.join(file['Path'], file['Name'])
+	'''
+	Descargar y modificar la metada del archivo.
+	'''
+
+	#filename = os.path.join(file['Path'], file['Name'])
 	url_file = URL_API +  filename
 
 
@@ -27,20 +32,35 @@ def get_file(file):
 				if chunk:
 					f.write(chunk)
 		
+
+
+
+
+
+
 	return True
 
 
 async def consumer(data):
 
+	filename = data['Path'] + '/' + data['Name']
 
-	if os.path.exists(data['Path'] + '/' + data['Name']):
-		print(False)
+	if os.path.exists(filename):
+		print("")
+		print(data['Name'], end= "\n")
+		print("")
 
 	else:
 		
 		if not os.path.isdir(data['Path']):
 			os.makedirs(data['Path'],exist_ok=True)
-		get_file(data)		
+		
+		get_file(filename)		
+
+	atime = data['Acces time']
+	mtime = data['Modified time']
+
+	os.utime(filename,(atime,mtime))
 
 
 async def main():
@@ -56,19 +76,42 @@ async def main():
 		'''
 
 		files = {}
+		directory = {}
+		path = ''
 
 		async for message in websocket:
 
 			_message = json.loads(message)
-			path = _message['Path'] + _message['Name']
-			files[path] = _message
+
+
+			if path == _message['Path'] or path == '':
+				files[_message['Name']] = _message
+
+			else:
+				directory[path] = files
+				files = {}
+
+				'''
+				Cambiando de directorio
+				'''
+				files[_message['Name']] = _message
+				directory[_message['Path']] = files
+
+
+			path = _message['Path']
+
 
 			await consumer(_message)
 
 
+
 		with open('data.json','w') as f:
-			json.dump(files,f)
+			json.dump(directory,f)
 			del files
+			del path
+			del directory
+
+
 
 		'''
 		Monitoreo del sistema de archivos
