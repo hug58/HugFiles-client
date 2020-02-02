@@ -46,7 +46,7 @@ class EventHandler(FileSystemEventHandler):
 			r = requests.get(url)
 
 
-			if r.status_code == 400:
+			if r.status_code == 404:
 
 
 				url = URL_API + str(path.parent).replace('\\','/')
@@ -154,6 +154,13 @@ class EventHandler(FileSystemEventHandler):
 					_file = {'upload_file': open(event.src_path,'rb')}
 					requests.put(url,files = _file)
 
+					self.message = {
+						'status': 'modified',
+						'path': str(path.parent).replace('\\','/'),
+						'name': path.name,
+					}
+
+
 				else:
 					pass
 
@@ -178,9 +185,10 @@ class EventHandler(FileSystemEventHandler):
 						data = json.dumps({'new name':path.name,'old name': _file['name']})
 
 						self.message = {
-							'status': 'modified',
+							'status': 'renamed',
 							'path': str(path.parent).replace('\\','/'),
 							'name': path.name,
+							'oldname':_file['name'],
 						}
 						
 						requests.put(url,json = data)

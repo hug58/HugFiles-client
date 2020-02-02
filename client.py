@@ -22,15 +22,25 @@ DEFAULT_FOLDER = "data/files/"
 
 def _modified(filename,message):
 
+	'''
+	Si se dispara el evento "created" y "modified" puede generar errores
+	'''
 
-	_modifie_file = os.path.getmtime(filename)	
+
+	try:
+		_modifie_file = os.path.getmtime(filename)	
+		
+		if _modifie_file != message['modified time']:
+			return True
+
+		else:
+			return False
+
+	except:
+		return True #de esta forma no hay que volver a modificar el archivo
 
 
-	if _modifie_file != message['modified time']:
-		return True
 
-	else:
-		return False
 
 
 def _created(message):
@@ -108,13 +118,24 @@ async def consumer_handler(websocket):
 			elif _message['status'] == 'modified':
 				
 				if _modified(filename,_message):
-					_created(_message)  
+					_created(_message)
+
+					print(f'modifcado {_message["name"]}')
+
 				else: 
 					print(f'modificado {_message["name"]} pero no ha cambiado, probablemente sea de otro cliente o reenviado del server')
 
 
 			elif _message['status'] == 'renamed':
-				pass
+
+				if not os.path.exists(filename):
+					
+					oldname = f'{_message["path"]}/{_message["oldname"]}'
+
+					os.rename(oldname,filename)
+					print(f'{_message["oldname"]} ha sido cambiado a {_message["name"]}')
+				else:
+					pass
 
 			elif _message['status'] == 'removed':
 				
