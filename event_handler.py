@@ -27,8 +27,6 @@ class EventHandler(FileSystemEventHandler):
 
 	def on_created(self,event):
 
-
-
 		path = event.src_path.split(self.folder)
 		path =  'data/files/' + path[1]
 		path = Path(path)
@@ -36,24 +34,41 @@ class EventHandler(FileSystemEventHandler):
 
 		if os.path.isfile(event.src_path):
 
+			url = URL_API + str(path).replace('\\','/')
 
-			url = URL_API + str(path.parent)
-			url = url.replace('\\','/')
 
-			files = {'upload_file': open(event.src_path,'rb')}
-			requests.post(url,files = files)
+			'''
+			Comprobar si el archivo ya existe en el server para no volver a re-enviar
+			'''
+
+
+			url = url.replace('data','list')
+			r = requests.get(url)
+
+
+			if r.status_code == 400:
+
+
+				url = URL_API + str(path.parent).replace('\\','/')
+
+				files = {'upload_file': open(event.src_path,'rb')}
+				requests.post(url,files = files)
+
+
+				self.message = {
+					'status': "created",
+					'path': str(path.parent).replace('\\','/'),
+					'name': path.name,
+				}
+
+
+			else:
+				pass #Ya existe en el server
+			
 
 
 		else:
-			pass
-
-		self.message = {
-			'status': "created",
-			'path': str(path.parent).replace('\\','/'),
-			'name': path.name,
-			'acces time': os.path.getatime(path),
-			'modified time': os.path.getmtime(path),
-		}
+			pass #File no found or it is folder
 
 
 
@@ -64,23 +79,26 @@ class EventHandler(FileSystemEventHandler):
 		path = Path(path)
 		url = ''
 
-		if os.path.isfile:
+		if os.path.exists:
 
-			url = URL_API + path._str 
-			url = url.replace('\\','/')
+			if os.path.isfile:
+
+				url = URL_API + str(path) 
+				url = url.replace('\\','/')
 			
-			r = requests.delete(url)
-			print(r.status_code)
+				r = requests.delete(url)
+
+			else:
+				pass #Es una carpeta
+
 
 		else:
-			pass
+			pass #Ya está borrado
 
 		self.message = {
 			'status': 'removed',
 			'path': str(path.parent).replace('\\','/'),
 			'name': path.name,
-			'acces time': os.path.getatime(path),
-			'modified time': os.path.getmtime(path),
 		}
 
 
@@ -94,66 +112,85 @@ class EventHandler(FileSystemEventHandler):
 		url = ''
 
 
+
+
+
+
 		if os.path.isfile(event.src_path):
 
-			with open('data.json','r') as f:
-				data = json.load(f)
 
 
-				_size = os.path.getsize(path)
-				_modifie_file = os.path.getmtime(path)
+			'''
+			para comprobar que solo ha cambiado el nombre, se comparará el tamanio y
+			la ultima fecha de modificacion del contenido
+			'''
 
 
-				files = data[str(path.parent).replace('\\','/')]
+			_size = os.path.getsize(event.src_path)
+			_modifie_file = os.path.getmtime(event.src_path)
 
-				if files and path.name in files:
+			
+			url = URL_API + str(path)
+			url = url.replace('\\','/')
+			url = url.replace('data','list')
+			r = requests.get(url)
 
-					print("Solo ha cambiado el contenido c:")
 
-					url = URL_API + path._str
-					url = url.replace('\\','/')
 
+			'''
+			con el status del response se comprueba si el archivo ha sido 
+			renombreado en el cliente o servidor 
+			'''
+
+
+
+			if r.status_code == 200:
+
+				data = r.json() 
+
+				if _modifie_file != data['modified time']:
+
+					url = URL_API + path._str.replace('\\','/')
 					_file = {'upload_file': open(event.src_path,'rb')}
 					requests.put(url,files = _file)
 
-
-					self.message = {
-						'status': 'modified',
-						'path': str(path.parent).replace('\\','/'),
-						'name': path.name,
-						'acces time': os.path.getatime(path),
-						'modified time': os.path.getmtime(path),
-					}
-
-
-
-
 				else:
-					for keys in files.keys():
-						_file = files[keys]
-
-						if _size == _file['size'] and _modifie_file == _file['modified time']:
-
-							url = URL_API + _file['path'] + '/' + _file['name']
-							data = json.dumps({'new name': path.name, 'old name': _file['name']})
-							requests.put(url,json = data)
-
-							print(f'newname: {path.name}')
-							print(f'oldname: {_file["name"]}')
-
-
-							self.message = {
-								'status': 'modified',
-								'path': str(path.parent).replace('\\','/'),
-								'name': path.name,
-								'oldname': _file['name'],
-								'acces time': _file['acces time'],
-								'modified time': _file['modified time'],
-							}
+					pass
 
 
 
-		else:
-			pass #folders
+			elif r.status_code == 404:
 
+				url = URL_API + str(path.parent).replace('\\','/')
+				url = url.replace('data','list')
+
+				data = requests.get(url)
+				files = data.json()
+				files = files[str(path.parent).replace('\\','/')] #Accediendo a la lista de archivos de la ruta
+
+
+				for _file in files:
+
+
+
+					if _size == _file['size'] and _modifie_file == _file['modified time']:
+						url = URL_API + _file['path'] + '/' + _file['name']
+						data = json.dumps({'new name':path.name,'old name': _file['name']})
+
+						self.message = {
+							'status': 'modified',
+							'path': str(path.parent).replace('\\','/'),
+							'name': path.name,
+						}
+						
+						requests.put(url,json = data)
+						
+						print(f'newname: {path.name}')
+						print(f'oldname: {_file["name"]}')
+
+						break
+
+
+					else:
+						pass
 

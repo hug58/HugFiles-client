@@ -16,31 +16,50 @@ from event_handler import EventHandler,URL_API
 
 
 
-
+#Carpeta predeterminada (por el momento), la idea a futuro es que el usuario pueda configurar esto a su gusto
 DEFAULT_FOLDER = "data/files/"
 
 
-def _created(file):
+def _modified(filename,message):
+
+
+	_modifie_file = os.path.getmtime(filename)	
+
+
+	if _modifie_file != message['modified time']:
+		return True
+
+	else:
+		return False
+
+
+def _created(message):
 
 		
-	if not os.path.isdir(file['path']):
-		os.makedirs(file['path'],exist_ok=True)
+	if not os.path.isdir(message['path']):
+		os.makedirs(message['path'],exist_ok=True)
 		
-	filename = file['path'] + '/' + file['name']
+	filename = message['path'] + '/' + message['name']
 
 	_file_download(filename)	
 
-	atime = file['acces time']
-	mtime = file['modified time']
+
+	#Modificando las fechas mtime y atime en el archivo
+
+	atime = message['acces time']
+	mtime = message['modified time']
 
 	os.utime(filename,(atime,mtime))
+
+
+	print(f' save: {message["name"]}')
+
 
 def _file_download(filename):
 
 	'''
 	Descargar y modificar la metada del archivo.
 	'''
-
 
 	url_file = URL_API +  filename
 
@@ -52,74 +71,64 @@ def _file_download(filename):
 					f.write(chunk)
 
 
-			
-
-
-
-
 
 
 async def consumer_handler(websocket):
 
-		files = {}
-		directory = {}
-		path = ''
-		
 
 		async for message in websocket:
 
 			_message = json.loads(message)
 
-			print(_message)
+
+			filename = _message['path'] + '/' + _message['name']
 
 
-			if _message['status'] == 'done':
+			#Realizando cambios
 
-				if path == _message['path'] or path == '':
-					files[_message['name']] = _message
-				else:
-					directory[path] = files
-					files = {}
 
-					#Cambiando de directorio
+			if  _message['status'] == 'created' or _message['status'] == 'done':
+				
+
+				try:
+					if not os.path.exists(filename):
+						_created(_message)
+					else:
+						if _modified(_message) :_created(_message)
+
+				except:
 					
-					files[_message['name']] = _message
-					directory[_message['path']] = files
-
-				path = _message['path']
-				filename = _message['path'] + '/' + _message['name']
-
-
-				'''
-				Para no descargar el archivo otra vez
-				'''
-
-
-
-
-
-				if not os.path.exists(filename):
-					_created(_message)
-
-				with open('data.json','w+') as f:
-					json.dump(directory,f)
-
-
-			elif _message['status'] == 'removed':
-				pass
+					'''
+					No es un string valido 
+					'''					
+					
+					pass
 
 
 			elif _message['status'] == 'modified':
+				
+				if _modified(filename,_message):
+					_created(_message)  
+				else: 
+					print(f'modificado {_message["name"]} pero no ha cambiado, probablemente sea de otro cliente o reenviado del server')
+
+
+			elif _message['status'] == 'renamed':
 				pass
 
+			elif _message['status'] == 'removed':
+				
 
-			elif _message['status'] == 'created':
+				if os.path.exists(filename):
+					os.remove(filename)
 
-				if not os.path.exists(filename):
-					_created(_message)
+				else:
 
-				_created(_message)
 
+					#Posiblemente fue borrado desde este cliente
+					
+
+					print(f'borrado {filename}')
 
 
 
@@ -134,29 +143,54 @@ async def producer_handler(websocket):
 	while True:
 
 		if event_handler.message != {}:
+
+			#enviando msg al server
+
 			_message = event_handler.message
 			await websocket.send(json.dumps(_message))
-			print(f'Sending... \n \n{_message} \n \n ')
+			print(f'Sending... \n {_message} \n ')
 			event_handler.message = {}
-		else:
-			await asyncio.sleep(1)
 
-	#await asyncio.sleep(1)
+		else:
+
+			#Sino esperar 1 seg
+
+			await asyncio.sleep(1)
 
 
 async def main():
 
+
 	url = "ws://localhost:7000"
+
+
+	#Generando la carpeta predeterminada sino existe
+
 
 	if not os.path.isdir(DEFAULT_FOLDER):
 		os.makedirs(DEFAULT_FOLDER,exist_ok=True)
 
 
+
+	#Conectando al servidor websocket
+
+
 	async with websockets.connect(url) as websocket:
 
+
+		''' 
+		Ejecutando 2 tareas en paralelo:
+			
+			consumer_handler() guarda y efectua los cambios en los archivos
+
+			producer_handler() envia los cambios al servidor para replicar el msg a los demás clientes
+
+		'''
+	
 		consumer_task = asyncio.create_task(
 			consumer_handler(websocket)
 			)
+
 
 		producer_task = asyncio.create_task(
 			producer_handler(websocket)
