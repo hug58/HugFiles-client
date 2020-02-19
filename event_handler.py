@@ -32,7 +32,7 @@ class EventHandler(FileSystemEventHandler):
 		path = Path(path)
 		url = ''
 
-		if os.path.isfile(event.src_path):
+		if os.path.exists(event.src_path):
 
 			url = URL_API + str(path).replace('\\','/')
 
@@ -49,17 +49,29 @@ class EventHandler(FileSystemEventHandler):
 			if r.status_code == 404:
 
 
-				url = URL_API + str(path.parent).replace('\\','/')
-
-				files = {'upload_file': open(event.src_path,'rb')}
-				requests.post(url,files = files)
+				if os.path.isfile(event.src_path):
 
 
-				self.message = {
-					'status': "created",
-					'path': str(path.parent).replace('\\','/'),
-					'name': path.name,
-				}
+					url = URL_API + str(path.parent).replace('\\','/')
+
+					files = {'upload_file': open(event.src_path,'rb')}
+					requests.post(url,files = files)
+
+
+					self.message = {
+						'status': "created",
+						'path': str(path.parent).replace('\\','/'),
+						'name': path.name,
+					}
+
+
+
+				elif os.path.isdir(event.src_path):
+					#Es una carpeta
+					url = URL_API + str(path).replace('\\','/')
+					data = json.dumps({'path':event.src_path})
+					requests.post(url,json=data)
+					
 
 
 			else:
@@ -68,7 +80,8 @@ class EventHandler(FileSystemEventHandler):
 
 
 		else:
-			pass #File no found or it is folder
+			#File no found
+			pass
 
 
 
@@ -81,15 +94,14 @@ class EventHandler(FileSystemEventHandler):
 
 		if os.path.exists:
 
-			if os.path.isfile:
 
-				url = URL_API + str(path) 
-				url = url.replace('\\','/')
+			url = URL_API + str(path) 
+			url = url.replace('\\','/')
 			
-				r = requests.delete(url)
+			r = requests.delete(url)
 
-			else:
-				pass #Es una carpeta
+
+
 
 
 		else:
