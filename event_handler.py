@@ -10,8 +10,8 @@ from watchdog.events import FileSystemEventHandler
 from pathlib import Path
 
 
-URL_API = 'http://127.0.0.1:5000/'
 
+from __init__ import URL_API
 
 
 class EventHandler(FileSystemEventHandler):

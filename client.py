@@ -12,8 +12,10 @@ from watchdog.observers import Observer
 from pathlib import Path
 
 #Locals
-from event_handler import EventHandler,URL_API
+from event_handler import EventHandler
 
+
+from __init__ import URL_API,URL_WS
 
 
 #Carpeta predeterminada (por el momento), la idea a futuro es que el usuario pueda configurar esto a su gusto
@@ -182,9 +184,6 @@ async def producer_handler(websocket):
 async def main():
 
 
-	url = "ws://localhost:7000"
-
-
 	#Generando la carpeta predeterminada sino existe
 
 
@@ -196,7 +195,7 @@ async def main():
 	#Conectando al servidor websocket
 
 
-	async with websockets.connect(url) as websocket:
+	async with websockets.connect(URL_WS) as websocket:
 
 
 		''' 
