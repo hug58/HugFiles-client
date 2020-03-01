@@ -91,17 +91,13 @@ async def consumer_handler(websocket):
 		async for message in websocket:
 
 			_message = json.loads(message)
-
-
 			filename = _message['path'] + '/' + _message['name']
 
 
 			#Realizando cambios
 
-
 			if  _message['status'] == 'created' or _message['status'] == 'done':
 				
-
 				try:
 					if not os.path.exists(filename):
 						_created(_message)
@@ -121,9 +117,7 @@ async def consumer_handler(websocket):
 				
 				if _modified(filename,_message):
 					_created(_message)
-
 					print(f'modifcado {_message["name"]}')
-
 				else: 
 					print(f'modificado {_message["name"]} pero no ha cambiado, probablemente sea de otro cliente o reenviado del server')
 
@@ -131,9 +125,8 @@ async def consumer_handler(websocket):
 			elif _message['status'] == 'renamed':
 
 				if not os.path.exists(filename):
-					
-					oldname = f'{_message["path"]}/{_message["oldname"]}'
 
+					oldname = f'{_message["path"]}/{_message["oldname"]}'
 					os.rename(oldname,filename)
 					print(f'{_message["oldname"]} ha sido cambiado a {_message["name"]}')
 				else:
@@ -146,14 +139,8 @@ async def consumer_handler(websocket):
 					os.remove(filename)
 
 				else:
-
-
 					#Posiblemente fue borrado desde este cliente
-					
-
 					print(f'borrado {filename}')
-
-
 
 
 async def producer_handler(websocket):
