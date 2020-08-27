@@ -1,4 +1,5 @@
 *.json
 data/*
-
+venv/
 __pycache__/*
+utils/__pycache__/*

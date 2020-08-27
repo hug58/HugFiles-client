@@ -1,41 +1,57 @@
 
-import os
-import os.path
+import re
 import requests
-import json
 
-import time
+from watchdog import events
+from datetime import datetime, timedelta
 
-from watchdog.events import FileSystemEventHandler
-from pathlib import Path
+class EventHandler(events.FileSystemEventHandler):
+	"""
+	Clase dedicada a los diferentes eventos del monitor de archivos,
+	cada evento realiza peticiones http para subir los archivos, (GET,POST,PUT,DELETE)
+	y luego envia las notificaciones al servidor para replicar los msj
+	"""
 
+	pattern = re.compile('(.+)/(.+)')
 
-
-from __init__ import URL_API
-
-
-class EventHandler(FileSystemEventHandler):
-	"""docstring for EventHandler"""
-
-
-	folder = 'files'
-
-
-	def __init__(self):
+	def __init__(self,url):
+		self.last_modified = datetime.now()
 		self.message = {}
+		self.url = url
+
+	def on_any_event(self, event):
+
+		result = re.search(self.pattern, event.src_path)
+
+		if datetime.now() - self.last_modified < timedelta(seconds=1):
+			return
+		else:
+			self.last_modified = datetime.now()
+
+		self.message = {
+			'status': event.event_type,
+			'path': event.src_path,
+			'name': result.group(2),
+			'url': f"{self.url}/{result.group(1)}",
+		}
 
 
+		if event.event_type == 'created':
+			pass
+			#requests.post(url,files = {'upload_file': open(event.src_path,'rb')})
+
+	"""
 	def on_created(self,event):
 
 		path = event.src_path.split(self.folder)
-		path =  'data/files/' + path[1]
+		path = 'data/files/' + path[1]
 		path = Path(path)
 		url = ''
 
+
+
 		if os.path.exists(event.src_path):
-
-			url = URL_API + str(path).replace('\\','/')
-
+			url = self.URL_API + str(path).replace('\\','/')
 
 			'''
 			Comprobar si el archivo ya existe en el server para no volver a re-enviar
@@ -48,12 +64,8 @@ class EventHandler(FileSystemEventHandler):
 
 			if r.status_code == 404:
 
-
 				if os.path.isfile(event.src_path):
-
-
-					url = URL_API + str(path.parent).replace('\\','/')
-
+					url = self.URL_API + str(path.parent).replace('\\','/')
 					files = {'upload_file': open(event.src_path,'rb')}
 					requests.post(url,files = files)
 
@@ -68,7 +80,7 @@ class EventHandler(FileSystemEventHandler):
 
 				elif os.path.isdir(event.src_path):
 					#Es una carpeta
-					url = URL_API + str(path).replace('\\','/')
+					url = self.URL_API + str(path).replace('\\','/')
 					data = json.dumps({'path':event.src_path})
 					requests.post(url,json=data)
 					
@@ -95,7 +107,7 @@ class EventHandler(FileSystemEventHandler):
 		if os.path.exists:
 
 
-			url = URL_API + str(path) 
+			url = self.URL_API + str(path)
 			url = url.replace('\\','/')
 			
 			r = requests.delete(url)
@@ -119,18 +131,12 @@ class EventHandler(FileSystemEventHandler):
 	def on_modified(self,event):
 
 		path = event.src_path.split(self.folder)
-		path =  'data/files/' + path[1]
+		path = 'data/files/' + path[1]
 		path = Path(path)
 		url = ''
 
 
-
-
-
-
 		if os.path.isfile(event.src_path):
-
-
 
 			'''
 			para comprobar que solo ha cambiado el nombre, se comparará el tamanio y
@@ -142,7 +148,7 @@ class EventHandler(FileSystemEventHandler):
 			_modifie_file = os.path.getmtime(event.src_path)
 
 			
-			url = URL_API + str(path)
+			url = self.URL_API + str(path)
 			url = url.replace('\\','/')
 			url = url.replace('data','list')
 			r = requests.get(url)
@@ -162,7 +168,7 @@ class EventHandler(FileSystemEventHandler):
 
 				if _modifie_file != data['modified time']:
 
-					url = URL_API + path._str.replace('\\','/')
+					url = self.URL_API + path._str.replace('\\','/')
 					_file = {'upload_file': open(event.src_path,'rb')}
 					requests.put(url,files = _file)
 
@@ -180,7 +186,7 @@ class EventHandler(FileSystemEventHandler):
 
 			elif r.status_code == 404:
 
-				url = URL_API + str(path.parent).replace('\\','/')
+				url = self.URL_API + str(path.parent).replace('\\','/')
 				url = url.replace('data','list')
 
 				data = requests.get(url)
@@ -193,7 +199,7 @@ class EventHandler(FileSystemEventHandler):
 
 
 					if _size == _file['size'] and _modifie_file == _file['modified time']:
-						url = URL_API + _file['path'] + '/' + _file['name']
+						url = self.URL_API + _file['path'] + '/' + _file['name']
 						data = json.dumps({'new name':path.name,'old name': _file['name']})
 
 						self.message = {
@@ -214,3 +220,5 @@ class EventHandler(FileSystemEventHandler):
 					else:
 						pass
 
+
+	"""
