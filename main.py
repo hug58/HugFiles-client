@@ -3,7 +3,7 @@ import requests
 import socketio
 import asyncio
 import json
-
+import requests
 
 from watchdog import observers
 
@@ -18,49 +18,41 @@ sio = socketio.AsyncClient()
 
 
 #######################URL del server#######################
-
-URL = 'http://192.168.250.4:5000'
+URL = 'http://localhost:5000'
 #URL = 'https://hug-files.herokuapp.com/'
 
 ############################################################
 
-
-
 global messages_files
 messages_files = [] #guardar los mensajes del server y luego procesarlos, de esta forma evito re-enviar un archivo
 
-
 @sio.on('connect')
 async def connect():
+	global path_user
 	print('Connection established')
-	await sio.emit('join',{'mail':'prueba@mail.com'}) #prueba@mail.com soydepurbea@mail.com
-	#await sio.emit('files', {'data': 'files'})
 
 
 @sio.on('notify')
-async def on_notify(data):
-	print(data)
+async def on_notify(metadata):
+	global path_user 
+	data = json.loads(metadata)
+	path_user = data["path"]
+	print(data, type(data))
 
 
 @sio.on('files')
 async def on_files(data):
-	
 	global result
 	result = ''
 	try:
-
 		data = json.loads(data)
 		messages_files.append(data)
 
-
 		if data['status'] == 'created' or data['status'] == 'done':
 			result = done(URL,data)
-
 		elif data['status'] == 'modified':
-			if modified(_message): 
+			if modified(data): 
 				result = created(URL,data)
-			
-
 		elif data['status'] == 'delete':
 			result = deleted(data)
 
@@ -80,9 +72,9 @@ async def producer_file(message):
 		pass
 
 
-async def producer_handler(_path='data/files/'):
-
-	monitorsystem = event_handler.EventHandler(URL)
+async def producer_handler(_path='data/files/', path_user=None):
+	print('Producing %s' % path_user)
+	monitorsystem = event_handler.EventHandler(URL, path_user)
 	observer = observers.Observer()
 
 	observer.schedule(monitorsystem, path=_path, recursive=True)
@@ -124,9 +116,16 @@ async def main():
 	if not os.path.isdir(DEFAULT_FOLDER):
 		os.makedirs(DEFAULT_FOLDER, exist_ok=True)
 
-
 	await sio.connect(URL)
-	await producer_handler()
+	data = {"email":"prueba@mail.com"}
+	respond = requests.post(URL + "/token", json=data, headers={'Content-Type': 'application/json'})
+	if respond.status_code == 200:
+		path_user = respond.json()["path"]
+		print(path_user)
+	else:
+		return 
+
+	await producer_handler(_path=DEFAULT_FOLDER, path_user=path_user)
 	await sio.wait()
 
 if __name__ == '__main__':

@@ -14,10 +14,11 @@ class EventHandler(events.FileSystemEventHandler):
 
 	pattern = re.compile('(.+)/(.+)')
 
-	def __init__(self,url):
+	def __init__(self,url, path_user):
 		self.last_modified = datetime.now()
 		self.message = {}
-		self.url = url
+		self.url = url 
+		self.path_user = path_user
 
 	def on_any_event(self, event):
 
@@ -32,7 +33,7 @@ class EventHandler(events.FileSystemEventHandler):
 			'status': event.event_type,
 			'path': event.src_path,
 			'name': result.group(2),
-			'url': f"{self.url}/{result.group(1)}",
+			'url': f"{self.url}/{result.group(1)}/{self.path_user}" ,
 		}
 
 
