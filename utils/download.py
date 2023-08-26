@@ -3,76 +3,59 @@ import os.path
 
 
 def __modified(url, message):
-	'''Si se dispara el evento "created" y "modified" puede generar errores'''
-
-	filename = os.path.join(message['path'],message['name'])
-
-	try:
-		_modified_file = os.path.getmtime(filename)
-
-		if _modified_file != message['modified time']:
-			_file_download(url,message)
-			return f'Modified file {message["name"]}'
-		else:
-			return
-	except:
-		pass  # de esta forma no hay que volver a modificar el archivo
+    """Firing the "created" and "modified" events can generate errors"""
+    filename = os.path.join(message['path'],message['name'])
+    try:
+        _modified_file = os.path.getmtime(filename)
+        if _modified_file != message['modified time']:
+            _file_download(url,message)
+            return f'Modified file {message["name"]}'
+        else:
+            return
+    except:
+        return
 
 
 def done(url,message):
-	'''Funcion para comprobar si el archivo/file existe, y si se ha creado en el lado del cliente o si viene del servidor'''
-	filename = os.path.join(message['path'],message['name'])
-
-	if not os.path.exists(filename):
-		#Si el archivo no existe en el cliente, entonces bajar archivo
-		created(url,message)
-	else:
-		#Si archivo/carpeta ha sido modificado en el server, entonces volver a bajar
-		if modified(message): 
-			created(url,message)
-		else:
-			return f'File without modified {message["name"]}'
+    """ This function is responsible verify if the file exists and if was created in size of the client or verify if it sent to the server"""
+    filename = os.path.join(message['path'],message['name'])
+    if not os.path.exists(filename):
+        created(url,message)
+    else:
+        if modified(message): 
+            created(url,message)
+        else:
+            return f'File without modified {message["name"]}'
 
 
 def modified(message):
-	'''Si se dispara el evento "created" y "modified" puede generar errores'''
-	filename = os.path.join(message['path'],message['name'])
-	
-	try:
-		_modified_file = os.path.getmtime(filename)
-
-		if _modified_file != message['modified time']:
-			return True
-
-		else:
-			return False
-	except:
-		return True  # de esta forma no hay que volver a modificar el archivo
+    """verify event modified and created event"""
+    filename = os.path.join(message['path'],message['name'])
+    try:
+        _modified_file = os.path.getmtime(filename)
+        if _modified_file != message['modified time']:
+            return True
+        else:
+            return False
+    except:
+        return True
 
 
 def created(url,message):
-	''' Sube el archivo al server'''
-	
-	filename = os.path.join(message['path'],message['name'])
-
-	
-	if not os.path.isdir(message['path']): #Comprueba si el directorio existe, sino crearlo
-		os.makedirs(message['path'], exist_ok=True)
-
-	try:
-		_file_download(url,filename) #Descargando archivo
-		print(f'Descargando {filename} ...')
-		# Modificando las fechas mtime y atime en el archivo
-		atime = message['acces time']
-		mtime = message['modified time']
-		#configurar metadata del archivo
-		os.utime(filename, (atime, mtime))
-
-		return f'save: {message["name"]}'
-
-	except:
-		print(url,filename)
-		return f'No se ha podido descargar el archivo correctamente {message["name"]}'
+    """upload a file to the server"""
+    filename = os.path.join(message['path'],message['name'])
+    if not os.path.isdir(message['path']):
+        os.makedirs(message['path'], exist_ok=True)
+    try:
+        _file_download(url,filename)
+        print(f'Downloading {filename} ...')
+        atime = message['acces time']
+        mtime = message['modified time']
+        os.utime(filename, (atime, mtime))
+        return f'save: {message["name"]}'
+    except:
+        print(url,filename)
+        return f'No se ha podido descargar el archivo correctamente {message["name"]}'
 
 
 
