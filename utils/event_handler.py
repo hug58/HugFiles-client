@@ -1,9 +1,12 @@
 
 import re
 import requests
+import os
+from utils import URL_BASE
 
 from watchdog import events
 from datetime import datetime, timedelta
+from urllib.parse import urljoin
 
 class EventHandler(events.FileSystemEventHandler):
     """
@@ -12,11 +15,13 @@ class EventHandler(events.FileSystemEventHandler):
     """
     pattern = re.compile('(.+)/(.+)')
     
-    def __init__(self,url, path_user):
+    def __init__(self,path, code):
         self.last_modified = datetime.now()
         self.message = {}
-        self.url = url 
-        self.path_user = path_user
+        self.url = URL_BASE 
+        self.code = f"data/{code}"
+        self.path = path
+        
     def on_any_event(self, event):
         """
 			TODO
@@ -26,11 +31,14 @@ class EventHandler(events.FileSystemEventHandler):
             return
         else:
             self.last_modified = datetime.now()
+            
+        relative_path = os.path.relpath(event.src_path,self.path)
+        code = f"{self.code}/{relative_path}"
         self.message = {
 			'status': event.event_type,
 			'path': event.src_path,
 			'name': result.group(2),
-			'url': f"{self.url}/{result.group(1)}/{self.path_user}" ,
+			'url': urljoin(self.url,code),
 		}
         if event.event_type == 'created':
             pass

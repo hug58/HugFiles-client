@@ -1,39 +1,36 @@
-import os
 import requests
 import socketio
 import asyncio
 import json
-import requests
+import threading
+
 
 from watchdog import observers
+from watchdog.observers.polling import PollingObserver
 
-
-#Locals
 from utils import event_handler  
 from utils.download import done,deleted,modified,created
-
-
+from utils.tui import TerminalInterface
+from utils.api import Api
 
 sio = socketio.AsyncClient()
 
+with open('config.json') as f:
+    data = json.load(f)
 
-URL = os.getenv("URL")
+
 global messages_files
 messages_files = [] 
-
-
-@sio.on('connect')
-async def connect():
-    global path_user
-    print('Connection established')
+URL = data['url']
+API_DOWNLOAD = data['api_download']
+global DEFAULT_FOLDER
+DEFAULT_FOLDER = ""
 
 
 @sio.on('notify')
 async def on_notify(metadata):
     global path_user 
     data = json.loads(metadata)
-    path_user = data["path"]
-    print(data, type(data))
 
 
 @sio.on('files')
@@ -42,41 +39,50 @@ async def on_files(data):
     global result
     result = ''
     try:
-        data = json.loads(data)
-        messages_files.append(data)
-        if data['status'] == 'created' or data['status'] == 'done':
-            result = done(URL,data)
-        elif data['status'] == 'modified':
+        message = json.loads(data)
+        message['path'] = os.path.join(DEFAULT_FOLDER, message['path'])
+        messages_files.append(message)
+        if message['status'] == 'created' or message['status'] == 'done':
+            result = done(API_DOWNLOAD,message)
+        elif message['status'] == 'modified':
             if modified(data): 
-                result = created(URL,data)
-        elif data['status'] == 'delete':
-            result = deleted(data)
+                result = created(API_DOWNLOAD,message)
+        elif message['status'] == 'delete':
+                result = deleted(message)
+        else:
+            #TODO
+            pass
+        
     except TypeError as err:
         #TODO: handle error
-        print(data, err)
+        print("error in function on_files",data, err)
 
 async def producer_file(message):
     """ only upload files, TODO: modified and deleted files"""
     if message['status'] == 'created':
         requests.post(message['url'],files = {'upload_file': open(message['path'],'rb')})
     elif message['status'] == 'modified':
-        pass
+        try:
+            requests.put(message['url'], files = {'upload_file': open(message['path'],'rb')})
+        except IsADirectory as err:
+            print(err)
+            
     elif message['status'] == 'deleted':
         pass 
 
 
-async def producer_handler(_path='data/files/', path_user=None):
+async def producer_handler(path, code):
     """Load monitor files and send notifications"""
-    monitorsystem = event_handler.EventHandler(URL, path_user)
-    observer = observers.Observer()
-    observer.schedule(monitorsystem, path=_path, recursive=True)
+    monitorsystem = event_handler.EventHandler(path, code)
+    observer = PollingObserver()
+    observer.schedule(monitorsystem, path=path, recursive=True)
     observer.start()
     print('Loading Monitorsystem')
+    
     while True:
         if monitorsystem.message != {}:
             _message = monitorsystem.message
             monitorsystem.message = {}
-            print(_message)
             try:
                 messages_files.remove(_message)
             except ValueError:
@@ -86,19 +92,19 @@ async def producer_handler(_path='data/files/', path_user=None):
             await asyncio.sleep(1)
 
 async def main():
-    DEFAULT_FOLDER = os.getenv("DEFAULT_FOLDER")
-    if not os.path.isdir(DEFAULT_FOLDER):
-        os.makedirs(DEFAULT_FOLDER, exist_ok=True)
+    tui = TerminalInterface()
+    tui.loop()
+
+    global DEFAULT_FOLDER
+    DEFAULT_FOLDER = tui.path
+    code = tui.code 
     await sio.connect(URL)
-    data = {"email":os.getenv("EMAIL")}
-    respond = requests.post(URL + "/token", json=data, headers={'Content-Type': 'application/json'})
-    if respond.status_code == 200:
-        path_user = respond.json()["path"]
-        print(path_user)
-    else:
-        return 
-    await producer_handler(_path=DEFAULT_FOLDER, path_user=path_user)
+    await sio.emit("join",{'code':code})
+    await producer_handler(DEFAULT_FOLDER,code)
+    
     await sio.wait()
+        
+    print("Exiting...")
 
 if __name__ == '__main__':
 	loop = asyncio.get_event_loop()
