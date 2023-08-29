@@ -10,7 +10,7 @@ multidict==4.7.6
 pathtools==0.1.2
 python-engineio==3.13.0
 python-socketio==4.6.0
-requests==2.23.0
+requests==2.31.0
 six==1.15.0
 typing-extensions==3.7.4.2
 urllib3==1.25.9
