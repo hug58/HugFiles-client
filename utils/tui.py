@@ -1,5 +1,5 @@
 import os
-from utils import URL_BASE
+from utils import get_config
 from .api import Api
 from colorama import init, Fore
 
@@ -9,16 +9,16 @@ class TerminalInterface:
         self._path = None
         self._connected = False
         self._code = None
-        self.api = Api(URL_BASE)
-        init()  # Inicializar colorama
+        self.api = Api(get_config()['url'])
+        init()  
         
     def submit_email(self):
         color = Fore.RED
-        self._email = email
 
         while True:
             email = input("Input your email: ")
             if email and email != "":
+                self._email = email
                 self._code = self.api.get_token(email)
                 if self._code:
                     break
@@ -46,7 +46,7 @@ class TerminalInterface:
 
     def draw_connection_circle(self):
         color = Fore.GREEN if self._connected else Fore.RED
-        print(f"{color}Connection Status: {color}█{Fore.RESET}")
+        print(f"{color} Connection Status: {color}█{Fore.RESET}")
         
     def loop(self):
         self.draw_connection_circle()

@@ -3,7 +3,8 @@ import socketio
 import asyncio
 import json
 import threading
-
+import os
+from urllib.parse import urljoin
 
 from watchdog import observers
 from watchdog.observers.polling import PollingObserver
@@ -12,20 +13,16 @@ from utils import event_handler
 from utils.download import done,deleted,modified,created
 from utils.tui import TerminalInterface
 from utils.api import Api
+from utils import  set_folder, get_config
 
 sio = socketio.AsyncClient()
 
-with open('config.json') as f:
-    data = json.load(f)
-
-
 global messages_files
 messages_files = [] 
-URL = data['url']
+data =  get_config()
+URL =  data['url']
 API_DOWNLOAD = data['api_download']
 global DEFAULT_FOLDER
-DEFAULT_FOLDER = ""
-
 
 @sio.on('notify')
 async def on_notify(metadata):
@@ -40,7 +37,7 @@ async def on_files(data):
     result = ''
     try:
         message = json.loads(data)
-        message['path'] = os.path.join(DEFAULT_FOLDER, message['path'])
+        message['path_user_local'] = os.path.join(DEFAULT_FOLDER, message['path'])
         messages_files.append(message)
         if message['status'] == 'created' or message['status'] == 'done':
             result = done(API_DOWNLOAD,message)
@@ -55,7 +52,8 @@ async def on_files(data):
         
     except TypeError as err:
         #TODO: handle error
-        print("error in function on_files",data, err)
+        # print("error in function on_files",data, err)
+        pass
 
 async def producer_file(message):
     """ only upload files, TODO: modified and deleted files"""
@@ -63,7 +61,8 @@ async def producer_file(message):
         requests.post(message['url'],files = {'upload_file': open(message['path'],'rb')})
     elif message['status'] == 'modified':
         try:
-            requests.put(message['url'], files = {'upload_file': open(message['path'],'rb')})
+            url = urljoin(message['url'],message['name'])
+            requests.put(url, files = {'upload_file': open(message['path'],'rb')})
         except IsADirectory as err:
             print(err)
             
@@ -94,9 +93,10 @@ async def producer_handler(path, code):
 async def main():
     tui = TerminalInterface()
     tui.loop()
-
-    global DEFAULT_FOLDER
-    DEFAULT_FOLDER = tui.path
+    set_folder(tui.path)
+    global DEFAULT_FOLDER 
+    DEFAULT_FOLDER = get_config()['default_folder']
+    
     code = tui.code 
     await sio.connect(URL)
     await sio.emit("join",{'code':code})

@@ -2,7 +2,8 @@
 import re
 import requests
 import os
-from utils import URL_BASE
+from utils import get_config
+from pathlib import Path
 
 from watchdog import events
 from datetime import datetime, timedelta
@@ -18,7 +19,7 @@ class EventHandler(events.FileSystemEventHandler):
     def __init__(self,path, code):
         self.last_modified = datetime.now()
         self.message = {}
-        self.url = URL_BASE 
+        self.url = get_config()['url']
         self.code = f"data/{code}"
         self.path = path
         
@@ -33,7 +34,9 @@ class EventHandler(events.FileSystemEventHandler):
             self.last_modified = datetime.now()
             
         relative_path = os.path.relpath(event.src_path,self.path)
+        relative_path = str(Path(relative_path).parent)
         code = f"{self.code}/{relative_path}"
+        
         self.message = {
 			'status': event.event_type,
 			'path': event.src_path,

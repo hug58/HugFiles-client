@@ -1,8 +1,1 @@
-
-{
-    "url": "http://localhost:5000",
-    "api_download":"http://localhost:5000/data/",
-    "url_token":"http://localhost:5000/token",
-    "default_folder":"data/files"
-
-}
+{"url": "http://localhost:5000", "api_download": "http://localhost:5000/data/", "url_token": "http://localhost:5000/token", "default_folder": "data"}
