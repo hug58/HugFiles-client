@@ -14,7 +14,6 @@ class TerminalInterface:
         
     def submit_email(self):
         color = Fore.RED
-
         while True:
             email = input("Input your email: ")
             if email and email != "":
@@ -22,7 +21,6 @@ class TerminalInterface:
                 self._code = self.api.get_token(email)
                 if self._code:
                     break
-
             print(f"{color}Please select a valid email {color}█{Fore.RESET}" )
             
 
@@ -30,7 +28,6 @@ class TerminalInterface:
 
     def select_folder(self):
         color = Fore.RED
-        
         while True:
             folder_path = input("Select Directory: ")
             if os.path.exists(folder_path) and os.path.isdir(folder_path):

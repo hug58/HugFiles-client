@@ -10,7 +10,7 @@ from watchdog import observers
 from watchdog.observers.polling import PollingObserver
 
 from utils import event_handler  
-from utils.download import done,deleted,modified,created
+from utils import actions
 from utils.tui import TerminalInterface
 from utils.api import Api
 from utils import  set_folder, get_config
@@ -40,12 +40,12 @@ async def on_files(data):
         message['path_user_local'] = os.path.join(DEFAULT_FOLDER, message['path'])
         messages_files.append(message)
         if message['status'] == 'created' or message['status'] == 'done':
-            result = done(API_DOWNLOAD,message)
+            result = actions.done(API_DOWNLOAD,message)
         elif message['status'] == 'modified':
             if modified(data): 
-                result = created(API_DOWNLOAD,message)
+                result = actions.created(API_DOWNLOAD,message)
         elif message['status'] == 'delete':
-                result = deleted(message)
+                result = actions.deleted(message)
         else:
             #TODO
             pass
@@ -99,6 +99,7 @@ async def main():
     
     code = tui.code 
     await sio.connect(URL)
+    print(code)
     await sio.emit("join",{'code':code})
     await producer_handler(DEFAULT_FOLDER,code)
     
