@@ -17,8 +17,6 @@ from utils import  set_folder, get_config
 
 sio = socketio.AsyncClient()
 
-global messages_files
-messages_files = [] 
 data =  get_config()
 URL =  data['url']
 API_DOWNLOAD = data['api_download']
@@ -37,18 +35,21 @@ async def on_files(data):
     result = ''
     try:
         message = json.loads(data)
+        
         message['path_user_local'] = os.path.join(DEFAULT_FOLDER, message['path'])
-        messages_files.append(message)
         if message['status'] == 'created' or message['status'] == 'done':
             result = actions.done(API_DOWNLOAD,message)
         elif message['status'] == 'modified':
             if modified(data): 
                 result = actions.created(API_DOWNLOAD,message)
+                
         elif message['status'] == 'delete':
                 result = actions.deleted(message)
         else:
             #TODO
             pass
+        
+        message = None
         
     except TypeError as err:
         #TODO: handle error
@@ -56,13 +57,12 @@ async def on_files(data):
         pass
 
 async def producer_file(message):
-    """ only upload files, TODO: modified and deleted files"""
+    """ only upload files, TODO:  deleted files"""
     if message['status'] == 'created':
         requests.post(message['url'],files = {'upload_file': open(message['path'],'rb')})
     elif message['status'] == 'modified':
         try:
-            url = urljoin(message['url'],message['name'])
-            requests.put(url, files = {'upload_file': open(message['path'],'rb')})
+            requests.put(urljoin(message['url'],message['name']), files = {'upload_file': open(message['path'],'rb')})
         except IsADirectory as err:
             print(err)
             
@@ -82,20 +82,20 @@ async def producer_handler(path, code):
         if monitorsystem.message != {}:
             _message = monitorsystem.message
             monitorsystem.message = {}
-            try:
-                messages_files.remove(_message)
-            except ValueError:
-                monitorsystem.message = {}
-                await producer_file(_message)
+            await producer_file(_message)
         else:
             await asyncio.sleep(1)
 
 async def main():
-    tui = TerminalInterface()
-    tui.loop()
-    set_folder(tui.path)
     global DEFAULT_FOLDER 
     DEFAULT_FOLDER = get_config()['default_folder']
+    USER = get_config()['user']
+    
+    
+    tui = TerminalInterface(DEFAULT_FOLDER, USER)
+    
+    tui.loop()
+    set_folder(tui.path)
     
     code = tui.code 
     await sio.connect(URL)

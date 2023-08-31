@@ -9,7 +9,7 @@ def __modified(url, message):
     filename = os.path.join(message['path'],message['name'])
     try:
         _modified_file = os.path.getmtime(filename)
-        if _modified_file != message['modified time']:
+        if _modified_file != message['modified_at']:
             _file_download(url,message)
             return f'Modified file {message["name"]}'
         else:
@@ -20,27 +20,25 @@ def __modified(url, message):
 
 def done(url,message):
     """ This function is responsible verify if the file exists and if was created in size of the client or verify if it sent to the server"""
-    filename = os.path.join(message['path'],message['name'])
-    if not os.path.exists(filename):
+    filename = os.path.join(message['path_user_local'], message['name'])
+    if not os.path.exists(filename) and not os.path.isfile(filename):
+        return created(url,message)
+    elif os.path.isfile(filename):
+        _modified_file = os.path.getmtime(filename)
+        if int(_modified_file) != int(message['modified_at']):
+            return f'File without modified {message["name"]}'
         return created(url,message)
     else:
-        if modified(message): 
-            return created(url,message)
-        else:
-            return f'File without modified {message["name"]}'
-
+        return f'is not a file {message["name"]}'
 
 def modified(message):
     """verify event modified and created event"""
-    filename = os.path.join(message['path'],message['name'])
-    try:
-        _modified_file = os.path.getmtime(filename)
-        if _modified_file != message['modified time']:
-            return True
-        else:
-            return False
-    except:
+    filename = os.path.join(message['path_user_local'],message['name'])
+    _modified_file = os.path.getmtime(filename)
+    if round(_modified_file) != message['modified_at']:
         return True
+    return False
+
 
 
 def created(url,message):
@@ -55,13 +53,12 @@ def created(url,message):
             mtime = message['modified_at']
             filename = os.path.join(message['path_user_local'],message['name'])
             os.utime(filename, (atime, mtime))
+        else:
+            return "Could not update the file"
         return f'save: {message["name"]}'
     except:
-        print("FAILED", message)
         # print(url,filename)
         return f'No se ha podido descargar el archivo correctamente {message["name"]}'
-
-
 
 
 def deleted(message):
@@ -84,7 +81,6 @@ def _file_download(url,message):
     url_file = urljoin(url,code)
     path = os.path.join(message['path'],message['name'])
     url_file = urljoin(url_file,path)
-    print(url_file)
     
     with requests.get(url_file, stream=True) as r:
         r.raise_for_status()

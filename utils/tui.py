@@ -4,9 +4,9 @@ from .api import Api
 from colorama import init, Fore
 
 class TerminalInterface:
-    def __init__(self):
-        self._email = None
-        self._path = None
+    def __init__(self, default=None, user=None):
+        self._email = user
+        self._path = default
         self._connected = False
         self._code = None
         self.api = Api(get_config()['url'])
@@ -18,9 +18,7 @@ class TerminalInterface:
             email = input("Input your email: ")
             if email and email != "":
                 self._email = email
-                self._code = self.api.get_token(email)
-                if self._code:
-                    break
+                break
             print(f"{color}Please select a valid email {color}█{Fore.RESET}" )
             
 
@@ -48,14 +46,18 @@ class TerminalInterface:
     def loop(self):
         self.draw_connection_circle()
         
-        while True:
+        while not self._email and not self._path:
             self.select_folder()
             self.submit_email()
             
             if self._path != None and self._email != None:
                 self.toggle_connection()
                 break
-            
+        
+        self._code = self.api.get_token(self._email)
+        if not self._code:
+            print("failed to get token...")
+        self.toggle_connection()
 
                 
     @property
